@@ -1,3 +1,6 @@
+import java.io.File
+import java.io.IOException
+
 class Emulator {
     private val memory = Memory()
     private val registers = Registers()
@@ -11,6 +14,12 @@ class Emulator {
     }
 
     private fun loadProgram(path: String) {
-        // Load program into ROM
+        try {
+            val file = File(path)
+            val bytes = file.readBytes()
+            System.arraycopy(bytes, 0, memory.rom, 0, bytes.size)
+        } catch (e: IOException) {
+            println("Failed to load program: ${e.message}")
+        }
     }
 }
