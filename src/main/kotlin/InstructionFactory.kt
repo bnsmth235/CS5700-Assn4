@@ -1,23 +1,23 @@
 class InstructionFactory {
     fun create(opcode: Byte): Instruction {
-        return when (opcode.toInt()) {
-            0x00 -> StopInstruction()
-            0x01 -> StoreInstruction()
-            0x02 -> AddInstruction()
-            0x03 -> JumpInstruction()
-            0x04 -> ReadKeyboardInstruction()
-            0x05 -> SwitchMemoryInstruction()
-            0x06 -> SkipEqualInstruction()
-            0x07 -> DrawInstruction()
-            0x08 -> SetAInstruction()
-            0x09 -> SetTInstruction()
-            0x0A -> ReadTInstruction()
-            0x0B -> SubInstruction()
-            0x0C -> ReadInstruction()
-            0x0D -> ConvertToBase10Instruction()
-            0x0E -> ConvertToAsciiInstruction()
-            0x0F -> SkipNotEqualInstruction()
-            0x10 -> WriteInstruction()
+        val opcode = opcode.toInt() and 0xF0 shr 4
+        return when (opcode) {
+            0x0 -> StoreInstruction()
+            0x1 -> AddInstruction()
+            0x2 -> SubInstruction()
+            0x3 -> ReadInstruction()
+            0x4 -> WriteInstruction()
+            0x5 -> JumpInstruction()
+            0x6 -> ReadKeyboardInstruction()
+            0x7 -> SwitchMemoryInstruction()
+            0x8 -> SkipEqualInstruction()
+            0x9 -> SkipNotEqualInstruction()
+            0xA -> SetAInstruction()
+            0xB -> SetTInstruction()
+            0xC -> ReadTInstruction()
+            0xD -> ConvertToBase10Instruction()
+            0xE -> ConvertToAsciiInstruction()
+            0xF -> DrawInstruction()
             else -> throw IllegalArgumentException("Unknown opcode: $opcode")
         }
     }
