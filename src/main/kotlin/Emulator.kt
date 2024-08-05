@@ -1,12 +1,3 @@
-package org.example
-
-import CPU
-import InstructionFactory
-import Keyboard
-import Memory
-import Nibbles
-import Registers
-import Screen
 import java.io.File
 import java.io.FileNotFoundException
 import java.util.concurrent.Executors
@@ -46,7 +37,7 @@ class Emulator {
             try {
                 val instructionByte = memory.readRom(cpu.programCounter)
                 val stopCheckByte = memory.readRom((cpu.programCounter + 1u).toUShort())
-                val nibbles = Nibbles(instructionByte, stopCheckByte)
+                val nibbles = ByteParser(instructionByte, stopCheckByte)
                 if (instructionByte.toInt() == 0 && stopCheckByte.toInt() == 0) {
                     stop()
                 }
@@ -58,13 +49,23 @@ class Emulator {
             }
         }
         val timerRunnable = Runnable {
-            if (cpu.timer != 0.toUByte()) {
-                cpu.timer--
+            if (cpu.timer.toInt() != 0) {
+                cpu.timer = (cpu.timer - 1u).toUByte()
             }
         }
 
-        cpuFuture = executor.scheduleAtFixedRate(cpuRunnable, 0, 2, TimeUnit.MILLISECONDS)
-        timerFuture = executor.scheduleAtFixedRate(timerRunnable, 0, 16, TimeUnit.MILLISECONDS)
+        cpuFuture = executor.scheduleAtFixedRate(
+            cpuRunnable,
+            0,
+            1000L / 500L,
+            TimeUnit.MILLISECONDS
+        )
+        timerFuture = executor.scheduleAtFixedRate(
+            timerRunnable,
+            0,
+            1000/60L,
+            TimeUnit.MILLISECONDS
+        )
     }
 
     fun stop() {

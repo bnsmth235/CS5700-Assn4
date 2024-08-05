@@ -1,4 +1,4 @@
-class Nibbles(val b0: UByte, val b1: UByte) {
+class ByteParser(val b0: UByte, val b1: UByte) {
     val nibbles: List<UByte>
 
     init {
