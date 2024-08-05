@@ -14,8 +14,8 @@ class Emulator {
     val registers = Registers()
     val cpu = CPU()
     private val executor = Executors.newSingleThreadScheduledExecutor()
-    private var cpuFuture: ScheduledFuture<*>? = null
-    private var timerFuture: ScheduledFuture<*>? = null
+    var cpuFuture: ScheduledFuture<*>? = null
+    var timerFuture: ScheduledFuture<*>? = null
 
     fun start(path: String) {
         try {
@@ -28,7 +28,7 @@ class Emulator {
         }
     }
 
-    private fun readRom() {
+    fun readRom() {
         romFile.readBytes().toUByteArray().copyInto(memory.rom)
     }
 
