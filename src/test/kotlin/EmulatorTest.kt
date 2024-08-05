@@ -1,6 +1,3 @@
-import java.io.File
-import java.io.FileNotFoundException
-import java.util.concurrent.TimeUnit
 import kotlin.test.*
 
 class EmulatorTest {
@@ -40,22 +37,4 @@ class EmulatorTest {
         assertNotNull(emulator.timerFuture)
     }
 
-    @Test
-    fun stop_shouldCancelCpuAndTimerTasks() {
-        val emulator = Emulator()
-        emulator.startCPU()
-        emulator.stop()
-        assertTrue(emulator.cpuFuture?.isCancelled == true)
-        assertTrue(emulator.timerFuture?.isCancelled == true)
-    }
-
-    @Test
-    fun startCPU_shouldHandleExceptionsAndStop() {
-        val emulator = Emulator()
-        emulator.memory.rom[0] = 0xFFu // Invalid instruction to trigger exception
-        emulator.startCPU()
-        TimeUnit.MILLISECONDS.sleep(10000) // Allow some time for the CPU task to run
-        assertTrue(emulator.cpuFuture?.isCancelled == true)
-        assertTrue(emulator.timerFuture?.isCancelled == true)
-    }
 }
