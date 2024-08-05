@@ -1,5 +1,5 @@
 class Registers{
-    val general = ByteArray(8)
+    val general = UByteArray(8)
     var programCounter: Int = 0
         set(value) {
             field = value and 0xFFFFFFFE.toInt() // Ensure program counter is always even

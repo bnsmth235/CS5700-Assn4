@@ -1,21 +1,25 @@
 class Memory {
-    val rom = ByteArray(4096)
-    val ram = ByteArray(4096)
+    val rom = UByteArray(4096)
+    val ram = UByteArray(4096)
 
-    fun read(address: Int): Byte {
-        if (address < 0 || address >= rom.size) {
-            throw IllegalArgumentException("Address out of bounds: $address")
+    fun readRom(address: UShort): UByte {
+        if (address.toInt() >= rom.size) {
+            throw IndexOutOfBoundsException("Attempted to read from out of bounds memory address")
         }
-        return if (address < 2048) rom[address] else ram[address - 2048]
+        return rom[address.toInt()]
     }
 
-    fun write(address: Int, value: Byte) {
-        if (address < 0 || address >= rom.size) {
-            throw IllegalArgumentException("Address out of bounds: $address")
+    fun readRam(address: UShort): UByte{
+        if (address.toInt() >= ram.size) {
+            throw IndexOutOfBoundsException("Attempted to read from out of bounds memory address")
         }
-        if (address < 2048) {
-            throw IllegalArgumentException("Cannot write to ROM address: $address")
+        return ram[address.toInt()]
+    }
+
+    fun writeRam(address: UShort, value: UByte) {
+        if (address.toInt() >= ram.size) {
+            throw IndexOutOfBoundsException("Attempted to write to out of bounds memory address")
         }
-        ram[address - 2048] = value
+        ram[address.toInt()] = value
     }
 }

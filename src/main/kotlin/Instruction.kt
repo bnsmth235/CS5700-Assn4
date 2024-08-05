@@ -1,186 +1,190 @@
-import kotlin.experimental.and
-
 interface Instruction {
     fun execute(cpu: CPU, memory: Memory, registers: Registers, screen: Screen, keyboard: Keyboard)
 }
 
-class StopInstruction : Instruction {
-    override fun execute(cpu: CPU, memory: Memory, registers: Registers, screen: Screen, keyboard: Keyboard) {
-        cpu.running = false
-        println("Execution stopped.")
-    }
-}
-
 class StoreInstruction : Instruction {
     override fun execute(cpu: CPU, memory: Memory, registers: Registers, screen: Screen, keyboard: Keyboard) {
-        val instruction = cpu.fetchNextByte().toInt()
-        val registerIndex = (instruction and 0x0F)
-        if (registerIndex < 0 || registerIndex >= registers.general.size) {
-            throw IllegalArgumentException("Register index out of bounds: $registerIndex")
-        }
-        val value = cpu.fetchNextByte()
-        registers.general[registerIndex] = value
-        registers.programCounter += 2
+        val nibbles = Nibbles(cpu.programCounter.toUByte(), memory.readRom((cpu.programCounter + 1u).toUShort()))
+        val rX = nibbles.nibbles[1].toInt()
+        val bb = nibbles.b1
+        registers.general[rX] = bb
+        cpu.programCounter = (cpu.programCounter + 2u).toUShort()
     }
 }
 
 class AddInstruction : Instruction {
     override fun execute(cpu: CPU, memory: Memory, registers: Registers, screen: Screen, keyboard: Keyboard) {
-        val operands = cpu.fetchNextByte()
-        val rX = (operands.toInt() and 0xF0).shr(4)
-        val rY = operands and 0x0F
-        val rZ = cpu.fetchNextByte() and 0x0F
-        registers.general[rZ.toInt()] = (registers.general[rX] + registers.general[rY.toInt()]).toByte()
-        registers.programCounter += 2
+        val nibbles = Nibbles(cpu.programCounter.toUByte(), memory.readRom((cpu.programCounter + 1u).toUShort()))
+        val rX = nibbles.nibbles[1].toInt()
+        val rY = nibbles.nibbles[2].toInt()
+        val rZ = nibbles.nibbles[3].toInt()
+        registers.general[rZ] = (registers.general[rX] + registers.general[rY]).toUByte()
+        cpu.programCounter = (cpu.programCounter + 2u).toUShort()
     }
 }
 
 class SubInstruction : Instruction {
     override fun execute(cpu: CPU, memory: Memory, registers: Registers, screen: Screen, keyboard: Keyboard) {
-        val operands = cpu.fetchNextByte()
-        val rX = (operands.toInt() and 0xF0).shr(4)
-        val rY = operands and 0x0F
-        val rZ = cpu.fetchNextByte() and 0x0F
-        registers.general[rZ.toInt()] = (registers.general[rX] - registers.general[rY.toInt()]).toByte()
-        registers.programCounter += 2
+        val nibbles = Nibbles(cpu.programCounter.toUByte(), memory.readRom((cpu.programCounter + 1u).toUShort()))
+        val rX = nibbles.nibbles[1].toInt()
+        val rY = nibbles.nibbles[2].toInt()
+        val rZ = nibbles.nibbles[3].toInt()
+        registers.general[rZ] = (registers.general[rX] - registers.general[rY]).toUByte()
+        cpu.programCounter = (cpu.programCounter + 2u).toUShort()
     }
 }
 
 class ReadInstruction : Instruction {
     override fun execute(cpu: CPU, memory: Memory, registers: Registers, screen: Screen, keyboard: Keyboard) {
-        val registerIndex = cpu.fetchNextByte() and 0x0F
-        registers.general[registerIndex.toInt()] = memory.read(registers.address)
-        registers.programCounter += 2
+        val nibbles = Nibbles(cpu.programCounter.toUByte(), memory.readRom((cpu.programCounter + 1u).toUShort()))
+        val rX = nibbles.nibbles[1].toInt()
+        val address = registers.address.toUShort()
+        val value = if (registers.memoryFlag) memory.readRom(address) else memory.readRam(address)
+        registers.general[rX] = value.toUByte()
+        cpu.programCounter = (cpu.programCounter + 2u).toUShort()
     }
 }
 
 class WriteInstruction : Instruction {
     override fun execute(cpu: CPU, memory: Memory, registers: Registers, screen: Screen, keyboard: Keyboard) {
-        val registerIndex = cpu.fetchNextByte() and 0x0F
-        memory.write(registers.address, registers.general[registerIndex.toInt()])
-        registers.programCounter += 2
+        val nibbles = Nibbles(cpu.programCounter.toUByte(), memory.readRom((cpu.programCounter + 1u).toUShort()))
+        val rX = nibbles.nibbles[1].toInt()
+        val address = registers.address.toUShort()
+        val value = registers.general[rX].toUByte()
+        if (registers.memoryFlag) {
+            // Attempt to write to ROM (future-proofing)
+            // Currently, this will fail for most ROM chips
+        } else {
+            memory.writeRam(address, value)
+        }
+        cpu.programCounter = (cpu.programCounter + 2u).toUShort()
     }
 }
 
 class JumpInstruction : Instruction {
     override fun execute(cpu: CPU, memory: Memory, registers: Registers, screen: Screen, keyboard: Keyboard) {
-        val address = cpu.fetchNextWord()
-        if (address % 2 != 0) {
-            throw IllegalArgumentException("Jump address must be divisible by 2")
+        val nibbles = Nibbles(cpu.programCounter.toUByte(), memory.readRom((cpu.programCounter + 1u).toUShort()))
+        val address = nibbles.getAddress()
+        if (address.toInt() % 2 != 0) {
+            throw IllegalArgumentException("Address not divisible by 2")
         }
-        registers.programCounter = address
+        cpu.programCounter = address
     }
 }
 
 class ReadKeyboardInstruction : Instruction {
     override fun execute(cpu: CPU, memory: Memory, registers: Registers, screen: Screen, keyboard: Keyboard) {
-        val registerIndex = cpu.fetchNextByte() and 0x0F
-        val input = keyboard.read() ?: 0
-        registers.general[registerIndex.toInt()] = input.toByte()
-        registers.programCounter += 2
+        val nibbles = Nibbles(cpu.programCounter.toUByte(), memory.readRom((cpu.programCounter + 1u).toUShort()))
+        val rX = nibbles.nibbles[1].toInt()
+        println("Please enter a hex digit (0-F):")
+        val input = readLine()?.take(2)?.toIntOrNull(16) ?: 0
+        registers.general[rX] = input.toUByte()
+        cpu.programCounter = (cpu.programCounter + 2u).toUShort()
     }
 }
 
 class SwitchMemoryInstruction : Instruction {
     override fun execute(cpu: CPU, memory: Memory, registers: Registers, screen: Screen, keyboard: Keyboard) {
         registers.memoryFlag = !registers.memoryFlag
-        registers.programCounter += 2
+        cpu.programCounter = (cpu.programCounter + 2u).toUShort()
     }
 }
 
 class SkipEqualInstruction : Instruction {
     override fun execute(cpu: CPU, memory: Memory, registers: Registers, screen: Screen, keyboard: Keyboard) {
-        val operands = cpu.fetchNextByte()
-        val rX = (operands.toInt() and 0xF0).shr(4)
-        val rY = operands and 0x0F
-        if (registers.general[rX] == registers.general[rY.toInt()]) {
-            registers.programCounter += 4
+        val nibbles = Nibbles(cpu.programCounter.toUByte(), memory.readRom((cpu.programCounter + 1u).toUShort()))
+        val rX = nibbles.nibbles[1].toInt()
+        val rY = nibbles.nibbles[2].toInt()
+        if (registers.general[rX] == registers.general[rY]) {
+            cpu.programCounter = (cpu.programCounter + 4u).toUShort()
         } else {
-            registers.programCounter += 2
+            cpu.programCounter = (cpu.programCounter + 2u).toUShort()
         }
     }
 }
 
 class SkipNotEqualInstruction : Instruction {
     override fun execute(cpu: CPU, memory: Memory, registers: Registers, screen: Screen, keyboard: Keyboard) {
-        val operands = cpu.fetchNextByte()
-        val rX = (operands.toInt() and 0xF0).shr(4)
-        val rY = operands and 0x0F
-        if (registers.general[rX] != registers.general[rY.toInt()]) {
-            registers.programCounter += 4
+        val nibbles = Nibbles(cpu.programCounter.toUByte(), memory.readRom((cpu.programCounter + 1u).toUShort()))
+        val rX = nibbles.nibbles[1].toInt()
+        val rY = nibbles.nibbles[2].toInt()
+        if (registers.general[rX] != registers.general[rY]) {
+            cpu.programCounter = (cpu.programCounter + 4u).toUShort()
         } else {
-            registers.programCounter += 2
+            cpu.programCounter = (cpu.programCounter + 2u).toUShort()
         }
     }
 }
 
 class SetAInstruction : Instruction {
     override fun execute(cpu: CPU, memory: Memory, registers: Registers, screen: Screen, keyboard: Keyboard) {
-        val address = cpu.fetchNextWord()
-        registers.address = address
-        registers.programCounter += 2
+        val nibbles = Nibbles(cpu.programCounter.toUByte(), memory.readRom((cpu.programCounter + 1u).toUShort()))
+        val address = nibbles.getAddress()
+        registers.address = address.toInt()
+        cpu.programCounter = (cpu.programCounter + 2u).toUShort()
     }
 }
 
 class SetTInstruction : Instruction {
     override fun execute(cpu: CPU, memory: Memory, registers: Registers, screen: Screen, keyboard: Keyboard) {
-        val timerValue = cpu.fetchNextByte()
-        registers.timer = timerValue
-        registers.programCounter += 2
+        val nibbles = Nibbles(cpu.programCounter.toUByte(), memory.readRom((cpu.programCounter + 1u).toUShort()))
+        val value = nibbles.combineNibbles(nibbles.nibbles[1], nibbles.nibbles[2])
+        cpu.timer = value.toUByte()
+        cpu.programCounter = (cpu.programCounter + 2u).toUShort()
     }
 }
 
 class ReadTInstruction : Instruction {
     override fun execute(cpu: CPU, memory: Memory, registers: Registers, screen: Screen, keyboard: Keyboard) {
-        val registerIndex = cpu.fetchNextByte() and 0x0F
-        registers.general[registerIndex.toInt()] = registers.timer
-        registers.programCounter += 2
+        val nibbles = Nibbles(cpu.programCounter.toUByte(), memory.readRom((cpu.programCounter + 1u).toUShort()))
+        val rX = nibbles.nibbles[1].toInt()
+        registers.general[rX] = cpu.timer
+        cpu.programCounter = (cpu.programCounter + 2u).toUShort()
     }
 }
 
 class ConvertToBase10Instruction : Instruction {
     override fun execute(cpu: CPU, memory: Memory, registers: Registers, screen: Screen, keyboard: Keyboard) {
-        val registerIndex = cpu.fetchNextByte() and 0x0F
-        val value = registers.general[registerIndex.toInt()] and 0xFF.toByte()
-        memory.write(registers.address, (value / 100).toByte())
-        memory.write(registers.address + 1, ((value / 10) % 10).toByte())
-        memory.write(registers.address + 2, (value % 10).toByte())
-        registers.programCounter += 2
+        val nibbles = Nibbles(cpu.programCounter.toUByte(), memory.readRom((cpu.programCounter + 1u).toUShort()))
+        val rX = nibbles.nibbles[1].toInt()
+        val value = registers.general[rX].toInt()
+        val hundreds = value / 100
+        val tens = (value / 10) % 10
+        val ones = value % 10
+        memory.writeRam(registers.address.toUShort(), hundreds.toUByte())
+        memory.writeRam((registers.address + 1).toUShort(), tens.toUByte())
+        memory.writeRam((registers.address + 2).toUShort(), ones.toUByte())
+        cpu.programCounter = (cpu.programCounter + 2u).toUShort()
     }
 }
 
 class ConvertToAsciiInstruction : Instruction {
     override fun execute(cpu: CPU, memory: Memory, registers: Registers, screen: Screen, keyboard: Keyboard) {
-        val operands = cpu.fetchNextByte()
-        val rX = (operands.toInt() and 0xF0).shr(4)
-        val rY = operands and 0x0F
-        val value = registers.general[rX].toInt() and 0xFF
-        if (value > 0x0F) {
-            throw IllegalArgumentException("Value in register $rX is greater than F (base-16)")
+        val nibbles = Nibbles(cpu.programCounter.toUByte(), memory.readRom((cpu.programCounter + 1u).toUShort()))
+        val rX = nibbles.nibbles[1].toInt()
+        val rY = nibbles.nibbles[2].toInt()
+        val value = registers.general[rX].toInt()
+        if (value > 0xF) {
+            throw IllegalArgumentException("Value in rX is greater than F")
         }
-        registers.general[rY.toInt()] = (value + 0x30).toByte()  // ASCII conversion for digits 0-F
-        registers.programCounter += 2
+        registers.general[rY] = (value + 0x30).toUByte() // Convert to ASCII
+        cpu.programCounter = (cpu.programCounter + 2u).toUShort()
     }
 }
 
 class DrawInstruction : Instruction {
     override fun execute(cpu: CPU, memory: Memory, registers: Registers, screen: Screen, keyboard: Keyboard) {
-        val operands1 = cpu.fetchNextByte()
-        val operands2 = cpu.fetchNextByte()
-        val rX = (operands1.toInt() and 0xF0).shr(4)
-        val rY = operands1.toInt() and 0x0F
-        val rZ = (operands2.toInt() and 0xF0).shr(4)
-
-        val charValue = registers.general[rX].toInt() and 0xFF
-        if (charValue > 0x7F) {
-            throw IllegalArgumentException("Value in register $rX is greater than 7F (127 in base-10)")
+        val nibbles = Nibbles(cpu.programCounter.toUByte(), memory.readRom((cpu.programCounter + 1u).toUShort()))
+        val rx = nibbles.nibbles[1].toInt()
+        val ry = nibbles.nibbles[2].toInt()
+        val rz = nibbles.nibbles[3].toInt()
+        val x = registers.general[rx]
+        if (x > 127u) {
+            throw Exception("Cannot draw ascii value greater than 127")
         }
-        val character = charValue.toChar()
-
-        val row = registers.general[rY].toInt()
-        val column = registers.general[rZ].toInt()
-
-        screen.drawCharacter(character, row, column)
-        registers.programCounter += 2
+        // draw the ascii value of x at the screen location specified by ry and rz
+        screen.memory[ry * 8 + rz] = x.toUByte()
+        screen.draw()
+        cpu.programCounter = (cpu.programCounter + 2u).toUShort()
     }
 }

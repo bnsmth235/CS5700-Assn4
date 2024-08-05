@@ -1,3 +1,5 @@
+import org.example.Emulator
+
 fun main(args: Array<String>) {
     //get rom directory from user input
     var romDirectory = ""
